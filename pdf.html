@@ -10,6 +10,13 @@
       border: 1px solid black;
       direction: ltr;
     }
+    #the-canvas2 {
+      border: 1px solid black;
+      direction: ltr;
+    }
+    .d-none {
+      display: none;
+    }
   </style>
   <script src="https://mozilla.github.io/pdf.js/build/pdf.mjs" type="module"></script>
   <script src="https://unpkg.com/pdf-lib@1.4.0/dist/pdf-lib.min.js"></script>
@@ -31,10 +38,15 @@
     var pdfDoc = null,
       pageNum = 1,
       pageRendering = false,
+      pageRendering2 = false,
       pageNumPending = null,
+      pageNumPending2 = null,
       scale = 1,
       canvas = document.getElementById('the-canvas'),
-      ctx = canvas.getContext('2d');
+      canvas2 = document.getElementById('the-canvas2'),
+      ctx = canvas.getContext('2d'),
+      ctx2 = canvas2.getContext('2d'),
+      signName = '';
 
     /**
      * Get page info from document, resize canvas accordingly, and render page.
@@ -89,6 +101,59 @@
     }
 
     /**
+     * Get page info from document, resize canvas accordingly, and render page.
+     * @param num Page number.
+     */
+     function renderPage2(num) {
+      console.log("renderPage2")
+      pageRendering2 = true;
+      // Using promise to fetch the page
+      pdfDoc.getPage(num).then(function (page) {
+        var viewport = page.getViewport({ scale: scale });
+        canvas2.height = viewport.height;
+        canvas2.width = viewport.width;
+
+        // Render PDF page into canvas context
+        var renderContext = {
+          canvasContext: ctx2,
+          viewport: viewport
+        };
+        var renderTask = page.render(renderContext);
+
+        // Wait for rendering to finish
+        renderTask.promise.then(function () {
+          console.log("renderTask 2")
+          pageRendering2 = false;
+          if (pageNumPending2 !== null) {
+            console.log("pageRendering")
+            // New page rendering is pending
+            renderPage2(pageNumPending2);
+            pageNumPending2 = null;
+          }
+          ctx2.beginPath();
+          // Set the stroke color
+          ctx2.strokeStyle = "#080808"; // Red color
+          // Set the rectangle dimensions and position
+          var x = 350;
+          var y = 500;
+          var width = 100;
+          var height = 100;
+          // Draw the unfilled rectangle
+          ctx2.strokeRect(x, y, width, height);
+
+          ctx2.beginPath();
+          ctx2.strokeStyle = "#FF0000"; // Red color
+          ctx2.lineWidth = 2; // Red color
+          ctx2.arc(400, 550, 40, 0, 2 * Math.PI);
+          ctx2.stroke();
+        });
+      });
+
+      // Update page counters
+      document.getElementById('page_num').textContent = num;
+    }
+
+    /**
      * If another page rendering in progress, waits until the rendering is
      * finised. Otherwise, executes rendering immediately.
      */
@@ -98,6 +163,11 @@
       } else {
         renderPage(num);
       }
+      setTimeout(() => {
+        ctx.beginPath();
+        ctx.font = "20px Arial";
+        ctx.fillText(signName, 372, 556);
+      }, 100)
     }
 
     /**
@@ -138,21 +208,29 @@
     canvas.addEventListener('click', function (e) {
       // Handle the click event here
       console.log('Clicked on PDF!', e);
-      handleSign();
+      renderPage(1);
+      setTimeout(() => {
+        handleSign();
+      }, 100);
     });
 
     function handleSign() {
       // 400 550
-      const text = "HUNG";
-      const textCanvas = document.querySelector('.measureTextWidth');
-      const context = textCanvas.getContext('2d');
-      context.font = '20px Arial';
-      const metrics = context.measureText(text);
-      const textWidth = metrics.width;
-      const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
-      ctx.beginPath();
-      ctx.font = "20px Arial";
-      ctx.fillText(text, 372, 556);
+      let person = prompt("Please enter your sign name", "HUNG");
+      console.log("person", person)
+      if (person != null) {
+        person = "HUNG"
+        signName = person;
+        const textCanvas = document.querySelector('.measureTextWidth');
+        const context = textCanvas.getContext('2d');
+        context.font = '20px Arial';
+        const metrics = context.measureText(signName);
+        const textWidth = metrics.width;
+        const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+        ctx.beginPath();
+        ctx.font = "20px Arial";
+        ctx.fillText(signName, 372, 556);
+      }
     }
 
     function downloadPDF() {
@@ -199,64 +277,55 @@
       // Get the width and height of the first page
       const { width, height } = firstPage.getSize()
       const context = firstPage.getContentStream();
-      console.log("firstPage", firstPage, pages, height)
-
-      // Draw a string of text diagonally across the first page
-      firstPage.drawText('This text was added with JavaScript!', {
-        x: 5,
-        y: height / 2 + 300,
-        size: 50,
-        font: helveticaFont,
-        color: rgb(0.95, 0.1, 0.1),
-        rotate: degrees(-45),
-      })
-
-      secondPage.drawText('This text was added with JavaScript!', {
-        x: 5,
-        y: height / 2 + 300,
-        size: 50,
-        font: helveticaFont,
-        color: rgb(0.95, 0.1, 0.1),
-        rotate: degrees(-45),
-      })
-
-      const circleX = 400; // X-coordinate of the circle center
-      const circleY = 550; // Y-coordinate of the circle center
-      const circleRadius = 25; // Radius of the circle
-
-      firstPage.drawEllipse({
-        context,
-        x: circleX - circleRadius,
-        y: height - circleY - circleRadius, // Invert Y-axis for PDF coordinates
-        width: circleRadius * 2,
-        height: circleRadius * 2,
-        color: rgb(0, 0, 0), // Circle color
-        borderWidth: 1, // Border width (optional)
-        borderColor: rgb(0, 0, 0), // Border color (optional)
-      });
-
-
-      const rectX = 350;
-      const rectY = 500;
-      const rectWidth = 100;
-      const rectHeight = 100;
-
-      secondPage.drawRectangle({
-        context,
-        x: rectX,
-        y: height - rectY - rectHeight,
-        width: rectWidth,
-        height: rectHeight,
-        color: rgb(0, 0, 0),
-        borderWidth: 1,
-        borderColor: rgb(0, 0, 0),
-      });
+      drawSignature(firstPage, width, height, context, helveticaFont)
+      drawSignature(secondPage, width, height, context, helveticaFont)
 
       // Serialize the PDFDocument to bytes (a Uint8Array)
       const pdfBytes = await pdfDoc.save()
 
       // Trigger the browser to download the PDF document
       download(pdfBytes, "sample.pdf", "application/pdf");
+    }
+
+    async function drawSignature(target, width, height, context, helveticaFont) {
+      const rightCoordinate = 100;
+      const rectX = width - rightCoordinate;
+      const rectY = 100;
+
+      const circleX = rectX + 35; // X-coordinate of the circle center
+      const circleY = rectY + 35; // Y-coordinate of the circle center
+      const rectWidth = 70;
+      const rectHeight = 70;
+
+      target.drawEllipse({
+        context,
+        x: circleX,
+        y: circleY, // Invert Y-axis for PDF coordinates
+        borderWidth: 2, // Border width (optional)
+        borderColor: rgb(1, 0, 0), // Border color (optional)
+        xScale: 30, // Scale,
+        yScale: 30, // Scale,
+      });
+
+
+
+      target.drawRectangle({
+        context,
+        x: width - rightCoordinate,
+        y: rectY,
+        width: rectWidth,
+        height: rectHeight,
+        borderWidth: 1,
+        borderColor: rgb(0, 0, 0),
+      });
+
+      target.drawText('HUNG', {
+        x: rectX + 13,
+        y: rectY + 30,
+        size: 15,
+        font: helveticaFont,
+        color: rgb(1, 0, 0),
+      })
     }
   </script>
 </head>
@@ -275,7 +344,12 @@
     <span>Page: <span id="page_num"></span> / <span id="page_count"></span></span>
   </div>
 
-  <canvas id="the-canvas"></canvas>
+  <div>
+    <canvas id="the-canvas"></canvas>
+  </div>
+  <div>
+    <canvas class="d-none" id="the-canvas2"></canvas>
+  </div>
   <canvas class="d-none measureTextWidth"></canvas>
 </body>
 

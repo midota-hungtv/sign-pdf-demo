@@ -10,12 +10,29 @@
       border: 1px solid black;
       direction: ltr;
     }
+
     #the-canvas2 {
       border: 1px solid black;
       direction: ltr;
     }
+
     .d-none {
       display: none;
+    }
+
+    .fakeRect {
+      position: absolute;
+      background: transparent;
+      height: 100px;
+      width: 100px;
+      left: 359px;
+      bottom: 150px;
+      z-index: 1;
+      content: "";
+    }
+
+    canvas {
+      position: relative;
     }
   </style>
   <script src="https://mozilla.github.io/pdf.js/build/pdf.mjs" type="module"></script>
@@ -104,7 +121,7 @@
      * Get page info from document, resize canvas accordingly, and render page.
      * @param num Page number.
      */
-     function renderPage2(num) {
+    function renderPage2(num) {
       console.log("renderPage2")
       pageRendering2 = true;
       // Using promise to fetch the page
@@ -165,6 +182,7 @@
       }
       setTimeout(() => {
         ctx.beginPath();
+        ctx.fillStyle = '#FF0000';
         ctx.font = "20px Arial";
         ctx.fillText(signName, 372, 556);
       }, 100)
@@ -203,16 +221,16 @@
 
       // Initial/first page rendering
       renderPage(pageNum);
+      // renderPage2(2);
     });
 
-    canvas.addEventListener('click', function (e) {
-      // Handle the click event here
-      console.log('Clicked on PDF!', e);
+    const fakeRectEls = document.getElementsByClassName('fakeRect');
+    fakeRectEls[0].addEventListener('click', () => {
       renderPage(1);
       setTimeout(() => {
         handleSign();
       }, 100);
-    });
+    })
 
     function handleSign() {
       // 400 550
@@ -228,6 +246,7 @@
         const textWidth = metrics.width;
         const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
         ctx.beginPath();
+        ctx.fillStyle = '#FF0000';
         ctx.font = "20px Arial";
         ctx.fillText(signName, 372, 556);
       }
@@ -288,9 +307,9 @@
     }
 
     async function drawSignature(target, width, height, context, helveticaFont) {
-      const rightCoordinate = 100;
+      const rightCoordinate = 250;
       const rectX = width - rightCoordinate;
-      const rectY = 100;
+      const rectY = 200;
 
       const circleX = rectX + 35; // X-coordinate of the circle center
       const circleY = rectY + 35; // Y-coordinate of the circle center
@@ -319,7 +338,7 @@
         borderColor: rgb(0, 0, 0),
       });
 
-      target.drawText('HUNG', {
+      target.drawText(signName, {
         x: rectX + 13,
         y: rectY + 30,
         size: 15,
@@ -345,6 +364,7 @@
   </div>
 
   <div>
+    <div class="fakeRect"></div>
     <canvas id="the-canvas"></canvas>
   </div>
   <div>

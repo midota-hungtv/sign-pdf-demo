@@ -39,7 +39,7 @@
   <script src="https://unpkg.com/pdf-lib@1.4.0/dist/pdf-lib.min.js"></script>
   <script src="https://unpkg.com/downloadjs@1.4.7/download.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.3.3/jspdf.min.js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
   <script type="module">
     // If absolute URL from the remote server is provided, configure the CORS
     // header on that server.
@@ -69,6 +69,13 @@
      * Get page info from document, resize canvas accordingly, and render page.
      * @param num Page number.
      */
+
+    var yRect = 500;
+    var xRect = 350;
+    var heightRect = 100;
+    var widthRect = 100;
+    var circleLineWidth = 2;
+    var isTextTooBig = false;
     function renderPage(num) {
       pageRendering = true;
       // Using promise to fetch the page
@@ -94,27 +101,38 @@
             renderPage(pageNumPending);
             pageNumPending = null;
           }
-          ctx.beginPath();
-          // Set the stroke color
-          ctx.strokeStyle = "#080808"; // Red color
-          // Set the rectangle dimensions and position
-          var x = 350;
-          var y = 500;
-          var width = 100;
-          var height = 100;
-          // Draw the unfilled rectangle
-          ctx.strokeRect(x, y, width, height);
-
-          ctx.beginPath();
-          ctx.strokeStyle = "#FF0000"; // Red color
-          ctx.lineWidth = 2; // Red color
-          ctx.arc(400, 550, 40, 0, 2 * Math.PI);
-          ctx.stroke();
+          const rectConfig = { ctx, strokeColor: "#080808", xCoordinate: xRect, yCoordinate: yRect, width: widthRect, height: heightRect };
+          const circleConfig = { circleStrokeColor: "#FF0000", circleLineWidth, circleXCoordinate: 400, circleYCoordinate: 550, circleDiameter: 40 }
+          drawPreviewSignatureWrapper(rectConfig, circleConfig)
         });
       });
 
       // Update page counters
       document.getElementById('page_num').textContent = num;
+    }
+
+    /**
+     * Description
+     * @param {any} configRect
+     * @param {any} configCircle
+     * @returns void
+     */
+    function drawPreviewSignatureWrapper(configRect, configCircle) {
+      const { ctx, strokeColor, xCoordinate, yCoordinate, width, height } = configRect;
+      const { circleStrokeColor, circleLineWidth, circleXCoordinate, circleYCoordinate, circleDiameter } = configCircle;
+      // Draw square
+      ctx.beginPath();
+      ctx.strokeStyle = strokeColor;
+      ctx.strokeRect(xCoordinate, yCoordinate, width, height);
+
+      // Draw circle
+      const circleStartAngle = 0; //radian value
+      const circleEndAngle = 2 * Math.PI; //radian value
+      ctx.beginPath();
+      ctx.strokeStyle = circleStrokeColor;
+      ctx.lineWidth = circleLineWidth;
+      ctx.arc(circleXCoordinate, circleYCoordinate, circleDiameter, circleStartAngle, circleEndAngle);
+      ctx.stroke();
     }
 
     /**
@@ -231,25 +249,70 @@
         handleSign();
       }, 100);
     })
-
+    function handleText(text, fz) {
+      const { width, height } = displayTextWidth(text, fz);
+      if (width <= 50) {
+        if (!isChangeOriginalFz) {
+          originalFz = fz;
+          isChangeOriginalFz = true;
+        }
+        return;
+      }
+      handleText(text, fz - 1)
+    }
+    var originalFz = 20;
+    var isChangeOriginalFz = false;
+    var exportFz = 15;
+    var isChangeExportFz = false;
     function handleSign() {
       // 400 550
       let person = prompt("Please enter your sign name", "HUNG");
-      console.log("person", person)
+      const text1 = "チャン　ゴック　ティエン";
+      const text2 = "レビューお願いします";
+      const text = text2;
       if (person != null) {
-        person = "HUNG"
+        person = text;
         signName = person;
-        const textCanvas = document.querySelector('.measureTextWidth');
-        const context = textCanvas.getContext('2d');
-        context.font = '20px Arial';
-        const metrics = context.measureText(signName);
-        const textWidth = metrics.width;
-        const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
-        ctx.beginPath();
-        ctx.fillStyle = '#FF0000';
-        ctx.font = "20px Arial";
-        ctx.fillText(signName, 372, 556);
+        let splitWordArray = text.indexOf(' ') > -1 ? text.split(" ") : text.split("　");
+        if (splitWordArray.length === 1) {
+          splitWordArray = [];
+          for (let index = 0; index < (text.length % 4) + 1; index++) {
+            if (index === 0) {
+              splitWordArray.push(text.slice(0, (index + 1) * 4));
+            } else if (index < (text.length % 4)) {
+              splitWordArray.push(text.slice(index * 4, (index + 1) * 4));
+            } else if (index === (text.length % 4)) {
+              splitWordArray.push(text.slice(index * 4, text.length));
+            }
+          }
+        }
+        const config = {
+          color: "#ff0000",
+        }
+        splitWordArray.forEach((text, index) => {
+          const originalTextWidth = displayTextWidth(text, originalFz).width;
+          if (originalTextWidth > 50) {
+            handleText(text, originalFz);
+            isTextTooBig = true;
+          }
+          const textHeight = displayTextWidth(text, originalFz).height;
+          const textWidth = displayTextWidth(text, originalFz).width;
+          config.signName = text;
+          config.textWidth = textWidth;
+          config.textHeight = textHeight;
+          config.fontSize = originalFz;
+          config.configHeight = ((index + 1) * 20) - 42;
+          drawText(ctx, config);
+        })
       }
+    }
+
+    function drawText(ctx, config) {
+      const { color, fontSize, signName, textWidth, textHeight, configHeight } = config;
+      ctx.beginPath();
+      ctx.fillStyle = color;
+      ctx.font = `${fontSize}px Noto San JP`;
+      ctx.fillText(signName, xRect + ((widthRect / 2) - (textWidth / 2)), yRect + (heightRect / 2) + (textHeight / 2) + configHeight);
     }
 
     function downloadPDF() {
@@ -276,17 +339,19 @@
     });
 
     const { degrees, PDFDocument, rgb, StandardFonts } = PDFLib
+    const fontkit = window.fontkit;
 
     async function modifyPdf() {
       // Fetch an existing PDF document
       const url = '/sample.pdf'
       const existingPdfBytes = await fetch(url).then(res => res.arrayBuffer())
-
+      const notoSanFontUrl = "/NotoSansJP-Regular.ttf"
       // Load a PDFDocument from the existing PDF bytes
       const pdfDoc = await PDFDocument.load(existingPdfBytes)
-
+      const fontBytes = await fetch(notoSanFontUrl).then((res) => res.arrayBuffer());
+      pdfDoc.registerFontkit(fontkit);
       // Embed the Helvetica font
-      const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica)
+      const notoSanJP = await pdfDoc.embedFont(fontBytes)
 
       // Get the first page of the document
       const pages = pdfDoc.getPages()
@@ -296,8 +361,8 @@
       // Get the width and height of the first page
       const { width, height } = firstPage.getSize()
       const context = firstPage.getContentStream();
-      drawSignature(firstPage, width, height, context, helveticaFont)
-      drawSignature(secondPage, width, height, context, helveticaFont)
+      drawSignature(firstPage, width, height, context, notoSanJP)
+      // drawSignature(secondPage, width, height, context, notoSanJP)
 
       // Serialize the PDFDocument to bytes (a Uint8Array)
       const pdfBytes = await pdfDoc.save()
@@ -306,7 +371,7 @@
       download(pdfBytes, "sample.pdf", "application/pdf");
     }
 
-    async function drawSignature(target, width, height, context, helveticaFont) {
+    async function drawSignature(target, width, height, context, font) {
       const rightCoordinate = 250;
       const rectX = width - rightCoordinate;
       const rectY = 200;
@@ -326,8 +391,6 @@
         yScale: 30, // Scale,
       });
 
-
-
       target.drawRectangle({
         context,
         x: width - rightCoordinate,
@@ -337,14 +400,57 @@
         borderWidth: 1,
         borderColor: rgb(0, 0, 0),
       });
-
-      target.drawText(signName, {
-        x: rectX + 13,
-        y: rectY + 30,
-        size: 15,
-        font: helveticaFont,
-        color: rgb(1, 0, 0),
+      const text = signName;
+      let splitWordArray = text.indexOf(' ') > -1 ? text.split(" ") : text.split("　");
+      if (splitWordArray.length === 1) {
+        splitWordArray = [];
+        for (let index = 0; index < (text.length % 4) + 1; index++) {
+          if (index === 0) {
+            splitWordArray.push(text.slice(0, (index + 1) * 4));
+          } else if (index < (text.length % 4)) {
+            splitWordArray.push(text.slice(index * 4, (index + 1) * 4));
+          } else if (index === (text.length % 4)) {
+            splitWordArray.push(text.slice(index * 4, text.length));
+          }
+        }
+      }
+      splitWordArray.forEach((text, index) => {
+        const originalTextWidth = displayTextWidth(text, exportFz).width;
+        if (originalTextWidth > 35) {
+          handleTextExport(text, exportFz);
+        }
+        const textHeight = displayTextWidth(text, exportFz).height;
+        const textWidth = displayTextWidth(text, exportFz).width;
+        target.drawText(text, {
+          x: rectX + (rectWidth / 2) - (textWidth / 2),
+          y: rectY + 45 - (index * 15),
+          size: exportFz,
+          font: font,
+          color: rgb(1, 0, 0),
+        })
       })
+
+    }
+    function handleTextExport(text, fz) {
+      const { width, height } = displayTextWidth(text, fz);
+      if (width <= 35) {
+        if (!isChangeExportFz) {
+          exportFz = fz;
+          isChangeExportFz = true;
+        }
+        return;
+      }
+      handleTextExport(text, fz - 1)
+    }
+    function displayTextWidth(text, fontSize) {
+      const canvas = document.querySelector('.measureTextWidth');
+      const context = canvas.getContext('2d');
+      context.font = `${fontSize || 18}px Noto San JP`;
+      const metrics = context.measureText(text);
+      return {
+        width: metrics.width,
+        height: metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent
+      };
     }
   </script>
 </head>
@@ -362,7 +468,7 @@
     &nbsp; &nbsp;
     <span>Page: <span id="page_num"></span> / <span id="page_count"></span></span>
   </div>
-
+  <canvas class="d-none measureTextWidth"></canvas>
   <div>
     <div class="fakeRect"></div>
     <canvas id="the-canvas"></canvas>
